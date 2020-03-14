@@ -3,8 +3,11 @@ module Program
 open Dapper
 open FSharp.Control.Tasks.V2.ContextInsensitive
 open Giraffe
+open Microsoft.AspNetCore.Authentication.JwtBearer
 open Microsoft.Data.Sqlite
+open Microsoft.IdentityModel.Tokens
 open Saturn
+open System.Security.Claims
 
 type Artista = {
     id: int64;
@@ -243,7 +246,7 @@ module Queries =
                 "id_usuario", box idUsuario;
                 "id_etiqueta", box etiqueta]
             db.Query(sql, param) |> ignore
-        let AddInteresObra (idUsuario: int64) (idObra: int64) =
+        let AddInteresObra (idUsuario: string) (idObra: int64) =
             let db = new SqliteConnection "Data Source = ./teatro.db;"
             let sql = """
                 INSERT INTO usuario_interes_obra (id_usuario, id_obra)
@@ -253,7 +256,7 @@ module Queries =
                 "id_usuario", box idUsuario;
                 "id_obra", box idObra]
             db.Query(sql, param) |> ignore
-        let DelInteresObra (idUsuario: int64) (idObra: int64) =
+        let DelInteresObra (idUsuario: string) (idObra: int64) =
             let db = new SqliteConnection "Data Source = ./teatro.db;"
             let sql = """
                 DELETE FROM usuario_interes_obra
@@ -264,6 +267,10 @@ module Queries =
                 "id_usuario", box idUsuario;
                 "id_obra", box idObra]
             db.Query(sql, param) |> ignore
+
+let onlyLoggedIn = pipeline {
+    requires_authentication (Giraffe.Auth.challenge JwtBearerDefaults.AuthenticationScheme)
+}
 
 let ctrActividades = controller {
     index (fun ctx ->
@@ -288,11 +295,13 @@ let ctrActividadesObras = controller {
     )
 
     subController "/meInteresa" (fun obraId -> router {
+        pipe_through onlyLoggedIn
         put "" (fun next ctx -> task {
+            let username = ctx.User.FindFirst ClaimTypes.NameIdentifier
             let! hasInteres = Controller.getJson<bool> ctx
             if hasInteres
-                then Queries.Usuario.AddInteresObra (int64 1) obraId
-                else Queries.Usuario.DelInteresObra (int64 1) obraId
+                then Queries.Usuario.AddInteresObra username.Value obraId
+                else Queries.Usuario.DelInteresObra username.Value obraId
             return! next ctx})
     })
 }
@@ -323,6 +332,15 @@ let routerMain = router {
 }
 
 let app = application {
+    use_jwt_authentication_with_config (fun (opts: JwtBearerOptions) ->
+        opts.Authority <- "https://securetoken.google.com/labogrupo2-f386a"
+        opts.TokenValidationParameters <- TokenValidationParameters(
+            ValidateIssuer = true,
+            ValidIssuer = "https://securetoken.google.com/labogrupo2-f386a",
+            ValidateAudience = true,
+            ValidAudience = "labogrupo2-f386a",
+            ValidateLifetime = true)
+        ())
     use_router routerMain
     url "http://0.0.0.0:5000"
     use_cors "CORS" (fun builder -> builder.WithOrigins("*").AllowAnyMethod().WithHeaders("content-type") |> ignore)
