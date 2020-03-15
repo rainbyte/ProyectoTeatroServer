@@ -168,6 +168,10 @@ module Usuario =
         genAddInteres "etiqueta" "etiqueta"
     let AddInteresObra (idUsuario: string) (idObra: int64) =
         genAddInteres "obra" "id_obra" idUsuario idObra
+    let DelInteresArtista : string -> int64 -> unit =
+        genDelInteres "artista" "id_artista"
+    let DelInteresEtiqueta : string -> string -> unit =
+        genDelInteres "etiqueta" "etiqueta"
     let DelInteresObra (idUsuario: string) (idObra: int64) =
         genDelInteres "obra" "id_obra" idUsuario idObra
 
@@ -178,5 +182,9 @@ module Usuario =
         """
         let param = dict [ "id_usuario", box idUsuario ]
         conn().Query<'t>(genSql field tableSuffix, param) |> Seq.toArray
+    let GetAllInteresArtista : string -> int64 [] =
+        genGetAllInteres<int64> "artista" "id_artista"
+    let GetAllInteresEtiqueta : string -> string [] =
+        genGetAllInteres<string> "etiqueta" "etiqueta"
     let GetAllInteresObra : string -> int64 [] =
         genGetAllInteres<int64> "obra" "id_obra"

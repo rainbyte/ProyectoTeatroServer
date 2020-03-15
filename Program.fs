@@ -70,17 +70,59 @@ let ctrNotificaciones = controller {
 
 let ctrArtistas = controller {
     index (fun ctx -> Queries.Artista.GetAll () |> Controller.json ctx)
+
+    subController "/meInteresa" (fun idArtista -> router {
+        pipe_through onlyLoggedIn
+        put "" (fun next ctx -> task {
+            let username = ctx.User.FindFirst ClaimTypes.NameIdentifier
+            let! hasInteres = Controller.getJson<bool> ctx
+            if hasInteres
+                then Queries.Usuario.AddInteresArtista username.Value idArtista
+                else Queries.Usuario.DelInteresArtista username.Value idArtista
+            return! next ctx})
+    })
 }
 
 let ctrEtiquetas = controller {
     index (fun ctx -> Queries.Etiqueta.GetAll () |> Controller.json ctx)
+
+    subController "/meInteresa" (fun etiqueta -> router {
+        pipe_through onlyLoggedIn
+        put "" (fun next ctx -> task {
+            let username = ctx.User.FindFirst ClaimTypes.NameIdentifier
+            let! hasInteres = Controller.getJson<bool> ctx
+            if hasInteres
+                then Queries.Usuario.AddInteresEtiqueta username.Value etiqueta
+                else Queries.Usuario.DelInteresEtiqueta username.Value etiqueta
+            return! next ctx})
+    })
 }
 
 let routerMain = router {
     forward "/actividades" routerActividades
     forward "/notificaciones" ctrNotificaciones
     forward "/artistas" ctrArtistas
+    forward "/artistas/meInteresa" (router {
+        pipe_through onlyLoggedIn
+        getf "/%s" (fun usernameUnchecked next ctx -> task {
+            let username = ctx.User.FindFirst ClaimTypes.NameIdentifier
+            if usernameUnchecked = username.Value
+                then return!
+                        Queries.Usuario.GetAllInteresArtista username.Value
+                        |> Controller.json ctx
+                else return None})
+    })
     forward "/etiquetas" ctrEtiquetas
+    forward "/etiquetas/meInteresa" (router {
+        pipe_through onlyLoggedIn
+        getf "/%s" (fun usernameUnchecked next ctx -> task {
+            let username = ctx.User.FindFirst ClaimTypes.NameIdentifier
+            if usernameUnchecked = username.Value
+                then return!
+                        Queries.Usuario.GetAllInteresEtiqueta username.Value
+                        |> Controller.json ctx
+                else return None})
+    })
 }
 
 let app = application {
