@@ -143,40 +143,30 @@ module Notificacion =
         conn().Query<Notificacion>(sql)
 
 module Usuario =
-    let AddInteresArtista idUsuario idArtista =
-        let sql = """
-            INSERT INTO usuario_interes_artista (id_usuario, id_artista)
-            VALUES (@id_usuario, @id_artista);
+    let private genAddInteres tableSuffix field idUsuario fieldValue =
+        let genSql = sprintf """
+            INSERT INTO usuario_interes_%s (id_usuario, %s)
+            VALUES (@id_usuario, @value);
         """
         let param = dict [
             "id_usuario", box idUsuario;
-            "id_artista", box idArtista]
-        conn().Query(sql, param) |> ignore
-    let AddInteresEtiqueta idUsuario etiqueta =
-        let sql = """
-            INSERT INTO usuario_interes_etiqueta (id_usuario, id_etiqueta)
-            VALUES (@id_usuario, @id_etiqueta);
-        """
-        let param = dict [
-            "id_usuario", box idUsuario;
-            "id_etiqueta", box etiqueta]
-        conn().Query(sql, param) |> ignore
-    let AddInteresObra (idUsuario: string) (idObra: int64) =
-        let sql = """
-            INSERT INTO usuario_interes_obra (id_usuario, id_obra)
-            VALUES (@id_usuario, @id_obra);
-        """
-        let param = dict [
-            "id_usuario", box idUsuario;
-            "id_obra", box idObra]
-        conn().Query(sql, param) |> ignore
-    let DelInteresObra (idUsuario: string) (idObra: int64) =
-        let sql = """
-            DELETE FROM usuario_interes_obra
+            "value", box fieldValue]
+        conn().Query(genSql tableSuffix field, param) |> ignore
+    let private genDelInteres tableSuffix field idUsuario fieldValue =
+        let genSql = sprintf """
+            DELETE FROM usuario_interes_%s
             WHERE id_usuario = @id_usuario
-              AND id_obra = @id_obra;
+              AND %s = @value;
         """
         let param = dict [
             "id_usuario", box idUsuario;
-            "id_obra", box idObra]
-        conn().Query(sql, param) |> ignore
+            "value", box fieldValue]
+        conn().Query(genSql tableSuffix field, param) |> ignore
+    let AddInteresArtista : string -> int64 -> unit =
+        genAddInteres "artista" "id_artista"
+    let AddInteresEtiqueta : string -> string -> unit =
+        genAddInteres "etiqueta" "etiqueta"
+    let AddInteresObra (idUsuario: string) (idObra: int64) =
+        genAddInteres "obra" "id_obra" idUsuario idObra
+    let DelInteresObra (idUsuario: string) (idObra: int64) =
+        genDelInteres "obra" "id_obra" idUsuario idObra
