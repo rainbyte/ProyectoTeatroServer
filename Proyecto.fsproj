@@ -5,7 +5,10 @@
       <TargetFramework>netcoreapp3.1</TargetFramework>
     </PropertyGroup>
   
+    <!-- Files should be in the right order -->
     <ItemGroup>
+      <Compile Include="src/Model.fs" />
+      <Compile Include="src/Queries.fs" />
       <Compile Include="Program.fs" />
     </ItemGroup>
   
