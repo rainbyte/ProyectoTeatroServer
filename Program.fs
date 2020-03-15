@@ -52,6 +52,16 @@ let routerActividades = router {
     forward "" ctrActividades
     forward "/generales" ctrActividadesGenerales
     forward "/obras" ctrActividadesObras
+    forward "/obras/meInteresa" (router {
+        pipe_through onlyLoggedIn
+        getf "/%s" (fun usernameUnchecked next ctx -> task {
+            let username = ctx.User.FindFirst ClaimTypes.NameIdentifier
+            if usernameUnchecked = username.Value
+                then return!
+                        Queries.Usuario.GetAllInteresObra username.Value
+                        |> Controller.json ctx
+                else return None})
+    })
 }
 
 let ctrNotificaciones = controller {

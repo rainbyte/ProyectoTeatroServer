@@ -170,3 +170,13 @@ module Usuario =
         genAddInteres "obra" "id_obra" idUsuario idObra
     let DelInteresObra (idUsuario: string) (idObra: int64) =
         genDelInteres "obra" "id_obra" idUsuario idObra
+
+    let private genGetAllInteres<'t> tableSuffix field idUsuario =
+        let genSql = sprintf """
+            SELECT %s FROM usuario_interes_%s
+            WHERE id_usuario = @id_usuario
+        """
+        let param = dict [ "id_usuario", box idUsuario ]
+        conn().Query<'t>(genSql field tableSuffix, param) |> Seq.toArray
+    let GetAllInteresObra : string -> int64 [] =
+        genGetAllInteres<int64> "obra" "id_obra"
