@@ -5,22 +5,21 @@ open Microsoft.Data.Sqlite
 
 open Model
 
+let private conn () = new SqliteConnection "Data Source = ./teatro.db;"
+
 module Artista =
     let GetSingleById id =
-        let db = new SqliteConnection "Data Source = ./teatro.db;" 
         let sql = "SELECT id, nombre AS nombreYApellido FROM artista WHERE id = @id"
         let data = dict [ "id", box id ]
-        db.QuerySingle<Artista>(sql, data)
+        conn().QuerySingle<Artista>(sql, data)
     let GetAll () =
-        let db = new SqliteConnection "Data Source = ./teatro.db;"
         let sql = "SELECT id, nombre AS nombreYApellido FROM artista"
-        db.Query<Artista>(sql)
+        conn().Query<Artista>(sql)
 
 module Etiqueta =
     let GetAll () =
-        let db = new SqliteConnection "Data Source = ./teatro.db;"
         let sql = "SELECT * FROM etiqueta"
-        db.Query<string>(sql)
+        conn().Query<string>(sql)
 
 module ActividadGeneral =
     type DAO = {
@@ -41,7 +40,6 @@ module ActividadGeneral =
             hora = act.hora;
         }}
     let GetSingleById id =
-        let db = new SqliteConnection "Data Source = ./teatro.db;"
         let sql = """
             SELECT a.*, u.*
             FROM actividad_general a
@@ -50,17 +48,18 @@ module ActividadGeneral =
             LIMIT 1
         """
         let data = dict [ "id", box id ]
-        db.Query<DAO, Ubicacion, ActividadGeneral>(sql, (fun act ubi -> wrap act ubi), data)
+        conn().Query<DAO, Ubicacion, ActividadGeneral>(
+                sql, (fun act ubi -> wrap act ubi), data)
             |> Seq.exactlyOne
 
     let GetAll () =
-        let db = new SqliteConnection "Data Source = ./teatro.db;"
         let sql = """
             SELECT a.*, u.*
             FROM actividad_general a
             INNER JOIN ubicacion u ON a.id_ubicacion = u.id
         """
-        db.Query<DAO, Ubicacion, ActividadGeneral>(sql, fun act ubi -> wrap act ubi)
+        conn().Query<DAO, Ubicacion, ActividadGeneral>(
+                sql, fun act ubi -> wrap act ubi)
 
 module ActividadObra =
     type DAO = {
@@ -79,7 +78,6 @@ module ActividadObra =
         tematica: string;
     }
     let private wrap act ubi =
-        let db = new SqliteConnection "Data Source = ./teatro.db;"
         let sqlArtistas = """
             SELECT id, nombre as nombreYApellido
             FROM artista art
@@ -105,7 +103,7 @@ module ActividadObra =
             descripcion = act.descripcion;
             ubicacion = ubi;
             elenco = act.elenco;
-            artistas = db.Query<Artista>(sqlArtistas, param) |> Seq.toArray;
+            artistas = conn().Query<Artista>(sqlArtistas, param) |> Seq.toArray;
             autor = act.autor;
             puntaje = act.puntaje;
             puntajePromedio = act.puntaje_promedio;
@@ -113,21 +111,20 @@ module ActividadObra =
             valoracionPromedio = act.valoracion_promedio;
             direccion = act.direccion;
             sinopsis = act.sinopsis;
-            etiquetas = db.Query<string>(sqlEtiquetas, param) |> Seq.toArray;
+            etiquetas = conn().Query<string>(sqlEtiquetas, param) |> Seq.toArray;
             tematica = act.tematica;
-            fecha_hora = db.Query<FechaHora>(sqlFunciones, param) |> Seq.toArray;
-            imagenes = db.Query<Imagen>(sqlImagenes, param) |> Seq.toArray;
+            fecha_hora = conn().Query<FechaHora>(sqlFunciones, param) |> Seq.toArray;
+            imagenes = conn().Query<Imagen>(sqlImagenes, param) |> Seq.toArray;
         }
     let GetAll () =
-        let db = new SqliteConnection "Data Source = ./teatro.db;"
         let sql = """
             SELECT ao.*, ubi.*
             FROM actividad_obra ao
             INNER JOIN ubicacion_cap ubi ON ao.id_ubicacion_cap = ubi.id
         """
-        db.Query<DAO, UbicacionConCapacidad, ActividadObra>(sql, fun act ubi -> wrap act ubi)
+        conn().Query<DAO, UbicacionConCapacidad, ActividadObra>(
+                sql, fun act ubi -> wrap act ubi)
     let GetSingleById (id: int64) =
-        let db = new SqliteConnection "Data Source = ./teatro.db;"
         let sql = """
             SELECT ao.*, ubi.*
             FROM actividad_obra ao
@@ -136,13 +133,12 @@ module ActividadObra =
             LIMIT 1
         """
         let param = dict ["id", box id]
-        db.Query<DAO, UbicacionConCapacidad, ActividadObra>(
+        conn().Query<DAO, UbicacionConCapacidad, ActividadObra>(
                 sql, (fun act ubi -> wrap act ubi), param)
             |> Seq.exactlyOne
 
 module Notificacion =
     let GetAll () =
-        let db = new SqliteConnection "Data Source = ./teatro.db;"
         let sql = """
             SELECT id, fecha, titulo, descripcion,
                 id_actividad AS idActividad,
@@ -150,11 +146,10 @@ module Notificacion =
                 tipo_notificacion AS tipoNotificacion
             FROM notificacion
         """
-        db.Query<Notificacion>(sql)
+        conn().Query<Notificacion>(sql)
 
 module Usuario =
     let AddInteresArtista idUsuario idArtista =
-        let db = new SqliteConnection "Data Source = ./teatro.db;"
         let sql = """
             INSERT INTO usuario_interes_artista (id_usuario, id_artista)
             VALUES (@id_usuario, @id_artista);
@@ -162,9 +157,8 @@ module Usuario =
         let param = dict [
             "id_usuario", box idUsuario;
             "id_artista", box idArtista]
-        db.Query(sql, param) |> ignore
+        conn().Query(sql, param) |> ignore
     let AddInteresEtiqueta idUsuario etiqueta =
-        let db = new SqliteConnection "Data Source = ./teatro.db;"
         let sql = """
             INSERT INTO usuario_interes_etiqueta (id_usuario, id_etiqueta)
             VALUES (@id_usuario, @id_etiqueta);
@@ -172,9 +166,8 @@ module Usuario =
         let param = dict [
             "id_usuario", box idUsuario;
             "id_etiqueta", box etiqueta]
-        db.Query(sql, param) |> ignore
+        conn().Query(sql, param) |> ignore
     let AddInteresObra (idUsuario: string) (idObra: int64) =
-        let db = new SqliteConnection "Data Source = ./teatro.db;"
         let sql = """
             INSERT INTO usuario_interes_obra (id_usuario, id_obra)
             VALUES (@id_usuario, @id_obra);
@@ -182,9 +175,8 @@ module Usuario =
         let param = dict [
             "id_usuario", box idUsuario;
             "id_obra", box idObra]
-        db.Query(sql, param) |> ignore
+        conn().Query(sql, param) |> ignore
     let DelInteresObra (idUsuario: string) (idObra: int64) =
-        let db = new SqliteConnection "Data Source = ./teatro.db;"
         let sql = """
             DELETE FROM usuario_interes_obra
             WHERE id_usuario = @id_usuario
@@ -193,4 +185,4 @@ module Usuario =
         let param = dict [
             "id_usuario", box idUsuario;
             "id_obra", box idObra]
-        db.Query(sql, param) |> ignore
+        conn().Query(sql, param) |> ignore
