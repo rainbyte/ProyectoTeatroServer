@@ -26,40 +26,34 @@ module ActividadGeneral =
         id: int64;
         nombre: string;
         descripcion: string;
-        id_ubicacion: int64;
-        fecha: string;
-        hora: string;
     }
-    let private wrap act ubi = {
+    let private wrap = System.Func<_, _, _, _>(fun act fh ubi -> {
         id = act.id;
         nombre = act.nombre;
         descripcion = act.descripcion;
         ubicacion = ubi;
-        fecha_hora = {
-            fecha = act.fecha;
-            hora = act.hora;
-        }}
+        fecha_hora = fh})
     let GetSingleById id =
         let sql = """
-            SELECT a.*, u.*
+            SELECT a.id, a.nombre, a.descripcion, a.fecha, a.hora, u.*
             FROM actividad_general a
             INNER JOIN ubicacion u ON a.id_ubicacion = u.id
             WHERE a.id = @id
             LIMIT 1
         """
         let data = dict [ "id", box id ]
-        conn().Query<DAO, Ubicacion, ActividadGeneral>(
-                sql, (fun act ubi -> wrap act ubi), data)
+        conn().Query<DAO, FechaHora, Ubicacion, ActividadGeneral>(
+                sql, wrap, data, splitOn="fecha,id")
             |> Seq.exactlyOne
 
     let GetAll () =
         let sql = """
-            SELECT a.*, u.*
+            SELECT a.id, a.nombre, a.descripcion, a.fecha, a.hora, u.*
             FROM actividad_general a
             INNER JOIN ubicacion u ON a.id_ubicacion = u.id
         """
-        conn().Query<DAO, Ubicacion, ActividadGeneral>(
-                sql, fun act ubi -> wrap act ubi)
+        conn().Query<DAO, FechaHora, Ubicacion, ActividadGeneral>(
+                sql, wrap, splitOn="fecha,id")
 
 module ActividadObra =
     type DAO = {
@@ -77,7 +71,7 @@ module ActividadObra =
         sinopsis: string;
         tematica: string;
     }
-    let private wrap act ubi =
+    let private wrap = System.Func<_,_,_>(fun act ubi ->
         let sqlArtistas = """
             SELECT id, nombre as nombreYApellido
             FROM artista art
@@ -115,7 +109,7 @@ module ActividadObra =
             tematica = act.tematica;
             fecha_hora = conn().Query<FechaHora>(sqlFunciones, param) |> Seq.toArray;
             imagenes = conn().Query<Imagen>(sqlImagenes, param) |> Seq.toArray;
-        }
+        })
     let GetAll () =
         let sql = """
             SELECT ao.*, ubi.*
@@ -123,7 +117,7 @@ module ActividadObra =
             INNER JOIN ubicacion_cap ubi ON ao.id_ubicacion_cap = ubi.id
         """
         conn().Query<DAO, UbicacionConCapacidad, ActividadObra>(
-                sql, fun act ubi -> wrap act ubi)
+                sql, wrap)
     let GetSingleById (id: int64) =
         let sql = """
             SELECT ao.*, ubi.*
@@ -134,7 +128,7 @@ module ActividadObra =
         """
         let param = dict ["id", box id]
         conn().Query<DAO, UbicacionConCapacidad, ActividadObra>(
-                sql, (fun act ubi -> wrap act ubi), param)
+                sql, wrap, param)
             |> Seq.exactlyOne
 
 module Notificacion =
