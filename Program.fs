@@ -18,7 +18,7 @@ let ctrActividades = controller {
     index (fun ctx ->
         let actividades = {
             generales = Queries.ActividadGeneral.GetAll() |> Seq.toArray;
-            obras = Queries.ActividadObra.GetAll() |> Seq.toArray;
+            obras = Queries.ActividadObra.GetAll "" |> Seq.toArray;
         }
         actividades |> Controller.json ctx)
 }
@@ -31,9 +31,9 @@ let ctrActividadesGenerales = controller {
 }
 
 let ctrActividadesObras = controller {
-    index (fun ctx -> Queries.ActividadObra.GetAll() |> Controller.json ctx)
+    index (fun ctx -> Queries.ActividadObra.GetAll "" |> Controller.json ctx)
     show (fun ctx (id: int64) ->
-        Queries.ActividadObra.GetSingleById id |> Controller.json ctx
+        Queries.ActividadObra.GetSingleById "" id |> Controller.json ctx
     )
 
     subController "/meInteresa" (fun obraId -> router {
@@ -44,6 +44,16 @@ let ctrActividadesObras = controller {
             if hasInteres
                 then Queries.Usuario.AddInteresObra username.Value obraId
                 else Queries.Usuario.DelInteresObra username.Value obraId
+            return! next ctx})
+    })
+
+    subController "/valorar" (fun obraId -> router {
+        pipe_through onlyLoggedIn
+        putf "/%i" (fun puntos next ctx -> task {
+            let username = ctx.User.FindFirst ClaimTypes.NameIdentifier
+            printfn "puntuacion=%A" puntos
+            if puntos >= 0 && puntos <= 10
+                then Queries.Usuario.AddPuntuacionObra username.Value obraId (int64 puntos)
             return! next ctx})
     })
 }

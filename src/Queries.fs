@@ -71,7 +71,7 @@ module ActividadObra =
         sinopsis: string;
         tematica: string;
     }
-    let private wrap = System.Func<_,_,_>(fun act ubi ->
+    let private wrap idUsuario = System.Func<_,_,_>(fun act ubi ->
         let sqlArtistas = """
             SELECT id, nombre as nombreYApellido
             FROM artista art
@@ -90,7 +90,25 @@ module ActividadObra =
             SELECT url FROM actividad_obra_imagenes
             WHERE id_obra = @id_obra
         """
-        let param = dict ["id_obra", box act.id]
+        let sqlPuntuacionUsuario = """
+            SELECT puntuacion AS puntuacion
+            FROM usuario_puntuacion_obra
+            WHERE id_obra = @id_obra
+              AND id_usuario = @id_usuario
+            UNION ALL SELECT 0
+            LIMIT 1
+        """
+        let sqlPuntuacionPromedio = """
+            SELECT IFNULL(AVG(puntuacion), 0) AS puntuacion_promedio
+            FROM usuario_puntuacion_obra
+            WHERE id_obra = @id_obra
+        """
+        let param2 = dict ["id_obra", box act.id; "id_usuario", box ""];
+        let puntuacionUsuario : int64 =
+            conn().QuerySingle<int64>(sqlPuntuacionUsuario, param2);
+        let puntuacionPromedio : float =
+            conn().QuerySingle<float>(sqlPuntuacionPromedio, param2);
+        let param = dict ["id_obra", box act.id];
         {
             id = act.id;
             nombre = act.nombre;
@@ -99,10 +117,10 @@ module ActividadObra =
             elenco = act.elenco;
             artistas = conn().Query<Artista>(sqlArtistas, param) |> Seq.toArray;
             autor = act.autor;
-            puntaje = act.puntaje;
-            puntajePromedio = act.puntaje_promedio;
-            valoracion = act.valoracion;
-            valoracionPromedio = act.valoracion_promedio;
+            puntaje = puntuacionUsuario;
+            puntajePromedio = puntuacionPromedio;
+            valoracion = puntuacionUsuario;
+            valoracionPromedio = puntuacionPromedio;
             direccion = act.direccion;
             sinopsis = act.sinopsis;
             etiquetas = conn().Query<string>(sqlEtiquetas, param) |> Seq.toArray;
@@ -110,15 +128,15 @@ module ActividadObra =
             fecha_hora = conn().Query<FechaHora>(sqlFunciones, param) |> Seq.toArray;
             imagenes = conn().Query<Imagen>(sqlImagenes, param) |> Seq.toArray;
         })
-    let GetAll () =
+    let GetAll (idUsuario: string) =
         let sql = """
             SELECT ao.*, ubi.*
             FROM actividad_obra ao
             INNER JOIN ubicacion_cap ubi ON ao.id_ubicacion_cap = ubi.id
         """
         conn().Query<DAO, UbicacionConCapacidad, ActividadObra>(
-                sql, wrap)
-    let GetSingleById (id: int64) =
+                sql, wrap idUsuario)
+    let GetSingleById (idUsuario: string) (id: int64) =
         let sql = """
             SELECT ao.*, ubi.*
             FROM actividad_obra ao
@@ -128,7 +146,7 @@ module ActividadObra =
         """
         let param = dict ["id", box id]
         conn().Query<DAO, UbicacionConCapacidad, ActividadObra>(
-                sql, wrap, param)
+                sql, wrap idUsuario, param)
             |> Seq.exactlyOne
 
 module Notificacion =
@@ -188,3 +206,14 @@ module Usuario =
         genGetAllInteres<string> "etiqueta" "etiqueta"
     let GetAllInteresObra : string -> int64 [] =
         genGetAllInteres<int64> "obra" "id_obra"
+    
+    let AddPuntuacionObra (idUsuario: string) (idObra: int64) (puntos: int64) =
+        let sql = sprintf """
+            REPLACE INTO usuario_puntuacion_obra (id_usuario, id_obra, puntuacion)
+            VALUES (@id_usuario, @id_obra, @puntuacion);
+        """
+        let param = dict [
+            "id_usuario", box idUsuario;
+            "id_obra", box idObra;
+            "puntuacion", box puntos]
+        conn().Query(sql, param) |> ignore
